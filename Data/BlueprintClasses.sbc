@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    
+    <BlueprintClasses>
+    </BlueprintClasses>	
+
+    <BlueprintClassEntries>
+
+        <!-- Drills -->
+        <Entry Class="LargeBlocks" BlueprintSubtypeId="ConveyorSorter/KJN_KWP_RES_ResourceClaimPylon" />
+
+    </BlueprintClassEntries>
+
+</Definitions>

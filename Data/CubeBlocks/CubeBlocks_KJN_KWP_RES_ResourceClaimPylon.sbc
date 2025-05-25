@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<CubeBlocks>
+		<Definition xsi:type="MyObjectBuilder_ConveyorSorterDefinition">
+			<Id>
+				<TypeId>ConveyorSorter</TypeId>
+				<SubtypeId>KJN_KWP_RES_ResourceClaimPylon</SubtypeId>
+			</Id>
+			<DisplayName>Resource Claim Pylon</DisplayName>
+			<Icon>Textures\GUI\Icons\Cubes\KJN_KWP_RES_ResourceClaimPylon.dds</Icon>
+			<Description>A powerful static drill with a 150m detection range. Placing this close to other pylons will cause interference.
+				Mining Range: 150m radius (300m depth)
+				Ally Interferrence Range: 10km
+			Enemy Interference Range: 15km</Description>
+			<CubeSize>Large</CubeSize>
+			<GuiVisible>false</GuiVisible>
+			<BlockTopology>TriangleMesh</BlockTopology>
+			<Size x="9" y="13" z="9" />
+			<ModelOffset x="0" y="0" z="0" />
+			<Model>Models\Cubes\large\KJN_KWP_RES_ResourceClaimPylon.mwm</Model>
+			<Components>
+				<Component Subtype="SteelPlate" Count="1500" />
+				<Component Subtype="Construction" Count="430" />
+				<Component Subtype="Computer" Count="1300" />
+				<Component Subtype="LargeTube" Count="100" />
+				<Component Subtype="Motor" Count="50" />
+				<Component Subtype="MetalGrid" Count="100" />
+				<Component Subtype="SteelPlate" Count="2500" />
+			</Components>
+			<CriticalComponent Subtype="Computer" Index="0" />
+			<Center x="1" y="0" z="1" />
+			<MountPoints>
+				<MountPoint Side="Front" StartX="0.00" StartY="0.00" EndX="9.00" EndY="1.00"/>
+				<MountPoint Side="Back" StartX="0.00" StartY="0.00" EndX="9.00" EndY="1.00"/>
+				<MountPoint Side="Back" StartX="4.50" StartY="1.00" EndX="5.50" EndY="2.00"/>
+				<MountPoint Side="Back" StartX="3.50" StartY="1.00" EndX="4.50" EndY="2.00"/>
+				<MountPoint Side="Back" StartX="4.50" StartY="2.00" EndX="5.50" EndY="3.00"/>
+				<MountPoint Side="Back" StartX="3.50" StartY="2.00" EndX="4.50" EndY="3.00"/>
+				<MountPoint Side="Back" StartX="4.50" StartY="3.00" EndX="5.50" EndY="4.00"/>
+				<MountPoint Side="Back" StartX="3.50" StartY="3.00" EndX="4.50" EndY="4.00"/>
+				<MountPoint Side="Back" StartX="4.50" StartY="4.00" EndX="5.50" EndY="5.00"/>
+				<MountPoint Side="Back" StartX="3.50" StartY="4.00" EndX="4.50" EndY="5.00"/>
+				<MountPoint Side="Left" StartX="0.00" StartY="0.00" EndX="9.00" EndY="1.00"/>
+				<MountPoint Side="Right" StartX="0.00" StartY="0.00" EndX="9.00" EndY="1.00"/>
+				<MountPoint Side="Bottom" StartX="0.00" StartY="0.00" EndX="9.00" EndY="9.00"/>
+			</MountPoints>
+			<BuildProgressModels>
+				<Model BuildPercentUpperBound="0.33" File="Models\Cubes\Large\AdvancedRefinery_Construction_1.mwm" />
+				<Model BuildPercentUpperBound="0.66" File="Models\Cubes\Large\AdvancedRefinery_Construction_2.mwm" />
+				<Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\AdvancedRefinery_Construction_3.mwm" />
+			</BuildProgressModels>
+			<VoxelPlacement>
+				<StaticMode>
+					<PlacementMode>Volumetric</PlacementMode>
+					<MaxAllowed>0.12</MaxAllowed>
+					<MinAllowed>0</MinAllowed>
+				</StaticMode>
+				<DynamicMode>
+					<PlacementMode>Volumetric</PlacementMode>
+					<MaxAllowed>0.12</MaxAllowed>
+					<MinAllowed>0</MinAllowed>
+				</DynamicMode>
+			</VoxelPlacement>
+			<BlockPairName>KJN_KWP_RES_ResourceClaimPylon</BlockPairName>
+			<EdgeType>Light</EdgeType>
+			<BuildTimeSeconds>60</BuildTimeSeconds>
+			<DamageEffectName>Damage_HeavyMech_Damaged</DamageEffectName>
+			<DamagedSound>ParticleHeavyMech</DamagedSound>
+			<ResourceSinkGroup>Conveyors</ResourceSinkGroup>
+			<PowerInput>560.5</PowerInput>
+			<InventorySize>
+				<X>7.5</X>
+				<Y>7.5</Y>
+				<Z>7.5</Z>
+			</InventorySize>
+			<EmissiveColorPreset>Default</EmissiveColorPreset>
+			<PrimarySound>BlockAssemblerProcess</PrimarySound>
+			<DamageEffectName>Damage_Electrical_Prototech_Reactor</DamageEffectName>
+			<DamagedSound>ParticleElectrical</DamagedSound>
+			<DestroyEffect>Explosion_Warhead_02</DestroyEffect>
+			<DestroySound>WepSmallWarheadExpl</DestroySound>
+			<EmissiveColorPreset>Extended</EmissiveColorPreset>
+			<IsAirTight>false</IsAirTight>
+			<PCU>90</PCU>
+		</Definition>
+	</CubeBlocks>
+</Definitions>

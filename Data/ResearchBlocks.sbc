@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<Definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <ResearchBlocks>
+
+        <!-- Round Armor -->
+        <ResearchBlock xsi:type="ResearchBlock">
+            <Id Type="MyObjectBuilder_ConveyorSorter" Subtype="KJN_KWP_RES_ResourceClaimPylon" />
+            <UnlockedByGroups>
+                <GroupSubtype>1</GroupSubtype>
+            </UnlockedByGroups>
+        </ResearchBlock>
+
+    </ResearchBlocks>
+</Definitions>
