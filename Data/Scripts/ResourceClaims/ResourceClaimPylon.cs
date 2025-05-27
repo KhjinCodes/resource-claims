@@ -18,8 +18,8 @@ namespace Khjin.ResourceClaims
         private bool pendingSubpartsInitialization;
         private PylonStatus _relayedStatus = PylonStatus.Mining;
 
-        public ResourceClaimPylon(IMyConveyorSorter resourcePylon) 
-            : base(resourcePylon)
+        public ResourceClaimPylon(IMyConveyorSorter resourcePylon, ResourceClaimPylonLogic logic) 
+            : base(resourcePylon, logic)
         {
             _miningZoneRadius = 150.0f;
             _interferenceZoneRadius = 10000.0f;
@@ -27,7 +27,7 @@ namespace Khjin.ResourceClaims
             _drillHeadFlatOffset = 5.0f;
 
             _baseOreAmount = 10.0f;
-            _supressionPenaltyFactor = 0.20f;
+            _suppressionPenaltyFactor = 0.20f;
             _interferencePenaltyFactor = 0.10f;
 
             pendingSubpartsInitialization = true;
@@ -37,19 +37,19 @@ namespace Khjin.ResourceClaims
         {
             if (pendingSubpartsInitialization)
             {
-                Block.TryGetSubpart("cover", out _coverSubpart);
-                Block.TryGetSubpart("drill", out _drillSubpart);
-                if (_coverSubpart != null && _drillSubpart != null)
-                {
-                    _coverLocalMatrix = _coverSubpart.PositionComp.LocalMatrixRef;
-                    _drillLocalMatrix = _drillSubpart.PositionComp.LocalMatrixRef;
-                }
+                if(Block.TryGetSubpart("cover", out _coverSubpart))
+                { _coverLocalMatrix = _coverSubpart.PositionComp.LocalMatrixRef; }
+
+                if(Block.TryGetSubpart("drill", out _drillSubpart))
+                { _drillLocalMatrix = _drillSubpart.PositionComp.LocalMatrixRef; }
 
                 pendingSubpartsInitialization = false;
             }
 
-            if (pendingSubpartsInitialization) { return; }
-            if (!IsOutOfCameraRange()) { return; }
+            if (IsOutOfCameraRange()
+            || (_coverSubpart == null || _drillSubpart == null)
+            || pendingSubpartsInitialization)
+            { return; }
 
             float coverSpeed = (Status == PylonStatus.Mining ? COVER_MAX_ROTATE_SPEED : 0) / 60;
             float drillSpeed = (Status == PylonStatus.Mining ? DRILL_MAX_ROTATE_SPEED : 0) / 60;
@@ -77,7 +77,7 @@ namespace Khjin.ResourceClaims
 
         public bool IsOutOfCameraRange()
         {
-            return Vector3D.DistanceSquared(MyAPIGateway.Session.Camera.Position, Block.GetPosition()) <= (MAX_CAMERA_DISTANCE * MAX_CAMERA_DISTANCE);
+            return Vector3D.DistanceSquared(MyAPIGateway.Session.Camera.Position, Block.GetPosition()) > (MAX_CAMERA_DISTANCE * MAX_CAMERA_DISTANCE);
         }
 
         public PylonStatus GetStatus()

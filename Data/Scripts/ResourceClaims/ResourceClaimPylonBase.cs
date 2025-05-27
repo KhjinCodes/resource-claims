@@ -9,6 +9,7 @@ using VRage;
 using VRage.Game;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
+using VRage.Network;
 using VRage.ObjectBuilders;
 using VRage.Voxels;
 using VRageMath;
@@ -16,16 +17,14 @@ using InGame = Sandbox.ModAPI.Ingame;
 
 namespace Khjin.ResourceClaims
 {
-    public abstract class ResourceClaimPylonBase
+    public abstract class ResourceClaimPylonBase : IMyEventProxy
     {
-        // Constants
-        protected float _miningZoneRadius;
-        protected float _interferenceZoneRadius;
-        protected float _suppressionZoneRadius;
-        private int _maxScansPerCycle = 3000;
+        // Base References
+        private readonly IMyConveyorSorter _resourcePylon;
+        private readonly ResourceClaimPylonLogic _logic;
 
         // Mining
-        private readonly IMyConveyorSorter _resourcePylon;
+        protected float _miningZoneRadius;
         private BoundingBoxD _boxMiningBounds;
         private BoundingSphereD _sphereMiningBounds;
         private BoundingBoxDIterator _boxIterator;
@@ -33,6 +32,7 @@ namespace Khjin.ResourceClaims
         private Queue<MyVoxelBase> _voxelMapQueue;
         private Dictionary<string, OreProfile> _detectedOres;
         private Dictionary<MyVoxelBase, BoundingBoxD> _detectedVoxelMaps;
+        private int _maxScansPerCycle = 3000;
 
         // Production
         protected float _baseOreAmount;
@@ -46,15 +46,23 @@ namespace Khjin.ResourceClaims
         private MyTuple<double, MyObjectBuilder_Ore> _oreForStorage;
 
         // Interference and Suppression
-        protected float _supressionPenaltyFactor;
+        protected float _interferenceZoneRadius;
+        protected float _suppressionZoneRadius;
+        protected float _suppressionPenaltyFactor;
         protected float _interferencePenaltyFactor;
         private float _interferrencePenalty;
         private float _suppressionPenalty;
         private List<long> _warnedPlayers = new List<long>();
         private static List<IMyConveyorSorter> _pylons;
 
-        private PylonStatus _previousPylonStatus = PylonStatus.Idle;
         private PylonStatus _pylonStatus = PylonStatus.Idle;
+        private PylonStatus _previousPylonStatus = PylonStatus.Idle;
+
+        // Synced properties
+        private PylonStatus _lastSyncedPylonStatus;
+        private float _lastSyncedYield;
+        private bool _lastSyncedIsInterferedStatus;
+        private bool _lastSyncedIsSuppressedStatus;
 
         private class OreProfile
         {
@@ -62,14 +70,11 @@ namespace Khjin.ResourceClaims
             public float OreRatio;
         }
 
-        public ResourceClaimPylonBase(IMyConveyorSorter resourcePylon)
+        public ResourceClaimPylonBase(IMyConveyorSorter resourcePylon, ResourceClaimPylonLogic logic)
         {
             _resourcePylon = resourcePylon;
+            _logic = logic;
         }
-
-        public abstract void AnimateSubparts();
-
-        public abstract void PlaySounds();
 
         public void InitilizeAsServer()
         {
@@ -95,6 +100,18 @@ namespace Khjin.ResourceClaims
             (_collectorInventory as MyInventory).Constraint =
                 new MyInventoryConstraint(MySpaceTexts.ToolTipItemFilter_AnyOre, null, true)
                     .AddObjectBuilderType(typeof(MyObjectBuilder_Ore));
+
+            // Synchronization Support
+            _pylonStatus = PylonStatus.Idle;
+            _lastSyncedPylonStatus = PylonStatus.Idle;
+            _lastSyncedYield = 1.0f;
+            _lastSyncedIsInterferedStatus = false;
+            _lastSyncedIsSuppressedStatus = false;
+
+            _logic._syncedPylonStatus.SetLocalValue(_lastSyncedPylonStatus);
+            _logic._syncedYield.SetLocalValue(_lastSyncedYield);
+            _logic._syncedIsInterfered.SetLocalValue(_lastSyncedIsInterferedStatus ? (short)1 : (short)0);
+            _logic._syncedIsSuppressed.SetLocalValue(_lastSyncedIsSuppressedStatus ? (short)1 : (short)0);
         }
 
         public void DoWork()
@@ -137,6 +154,32 @@ namespace Khjin.ResourceClaims
                 case PylonStatus.NoOres:
                 case PylonStatus.GridNotStatic:
                 default: break;
+            }
+
+            SynchronizeStatus();
+        }
+
+        private void SynchronizeStatus()
+        {
+            if (_lastSyncedPylonStatus != _pylonStatus)
+            {
+                _logic._syncedPylonStatus.Value = _pylonStatus;
+                _lastSyncedPylonStatus = _pylonStatus;
+            }
+            if (_lastSyncedYield != _actualEffectiveness)
+            {
+                _logic._syncedYield.Value = _actualEffectiveness;
+                _lastSyncedYield = _actualEffectiveness;
+            }
+            if (_lastSyncedIsInterferedStatus != (_interferrencePenalty > 0))
+            {
+                _lastSyncedIsInterferedStatus = (_interferrencePenalty > 0);
+                _logic._syncedIsInterfered.Value = _lastSyncedIsInterferedStatus ? (short)1 : (short)0;
+            }
+            if (_lastSyncedIsSuppressedStatus != (_suppressionPenalty > 0))
+            {
+                _lastSyncedIsSuppressedStatus = (_suppressionPenalty > 0);
+                _logic._syncedIsSuppressed.Value = _lastSyncedIsSuppressedStatus ? (short)1 : (short)0;
             }
         }
 
@@ -362,7 +405,7 @@ namespace Khjin.ResourceClaims
                     var relationship = GetRelationshipBetweenPlayers(pylon.OwnerId, _resourcePylon.OwnerId);
                     if (relationship == MyRelationsBetweenFactions.Enemies)
                     {
-                        _suppressionPenalty += _supressionPenaltyFactor;
+                        _suppressionPenalty += _suppressionPenaltyFactor;
                     }
                 }
                 if (Vector3D.DistanceSquared(pylonPosition, claimPylonPosition) <= interferenceSq)
@@ -428,11 +471,15 @@ namespace Khjin.ResourceClaims
             return false;
         }
 
+        public abstract void AnimateSubparts();
+
+        public abstract void PlaySounds();
+
         public long EntityId
         {
             get { return _resourcePylon.EntityId; }
         }
-    
+        
         public IMyConveyorSorter Block
         {
             get { return _resourcePylon; }
@@ -440,22 +487,62 @@ namespace Khjin.ResourceClaims
 
         public PylonStatus Status
         {
-            get { return _pylonStatus; }
+            get
+            {
+                if (ResourceClaimPylonLogic.IsServer())
+                {
+                    return _pylonStatus;
+                }
+                else
+                {
+                    return _logic._syncedPylonStatus == null ? PylonStatus.Unknown : _logic._syncedPylonStatus.Value;
+                }
+            }
         }
         
-        public float Effectiveness
+        public float Yield
         {
-            get { return _actualEffectiveness; }
+            get 
+            {
+                if (ResourceClaimPylonLogic.IsServer())
+                {
+                    return _actualEffectiveness;
+                }
+                else
+                {
+                    return _logic._syncedYield == null ? 1.0f : _logic._syncedYield.Value;
+                }
+            }
         }
 
         public bool IsInterfered
         {
-            get { return _interferrencePenalty > 0; }
+            get 
+            {
+                if (ResourceClaimPylonLogic.IsServer())
+                {
+                    return _interferrencePenalty > 0;
+                }
+                else
+                {
+                    return _logic._syncedIsInterfered == null ? false : _logic._syncedIsInterfered.Value == 1 ? true : false;
+                }
+            }
         }
 
         public bool IsSuppressed
         {
-            get { return _suppressionPenalty > 0; }
+            get
+            {
+                if (ResourceClaimPylonLogic.IsServer())
+                {
+                    return _suppressionPenalty > 0;
+                }
+                else
+                {
+                    return _logic._syncedIsSuppressed == null ? false : _logic._syncedIsSuppressed.Value == 1 ? true : false;
+                }
+            }
         }
     }
 }

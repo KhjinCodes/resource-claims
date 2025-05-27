@@ -2,6 +2,7 @@
 {
     public enum PylonStatus
     {
+        Unknown,
         Idle,
         Initializing,
         Scanning,
