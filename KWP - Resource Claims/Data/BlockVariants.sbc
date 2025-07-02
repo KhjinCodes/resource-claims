@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <BlockVariantGroups>
+
+      <BlockVariantGroup>
+        <Id Type="MyObjectBuilder_BlockVariantGroup" Subtype="KJN_KWP_RES_PYLONS" />
+        <Icon>Textures\GUI\Icons\Cubes\KJN_KWP_RES_ResourceClaimPylon_Light.dds</Icon>
+        <DisplayName>Resource Claim Pylons</DisplayName>
+        <Description>Resource Claim Pylons</Description>
+        <Blocks>
+
+          <Block Type="MyObjectBuilder_ConveyorSorter" Subtype="KJN_KWP_RES_ResourceClaimPylon_Light" />
+          <Block Type="MyObjectBuilder_ConveyorSorter" Subtype="KJN_KWP_RES_ResourceClaimPylon_Medium" />
+          <Block Type="MyObjectBuilder_ConveyorSorter" Subtype="KJN_KWP_RES_ResourceClaimPylon_Heavy" />
+
+        </Blocks>
+      </BlockVariantGroup>
+      
+    </BlockVariantGroups>
+</Definitions>

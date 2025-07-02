@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<Definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <Sounds>
+    <!--
+        <Sound>
+            <Id>
+                <TypeId>MyObjectBuilder_AudioDefinition</TypeId>
+                <SubtypeId>KJN_KWP_DrillSound</SubtypeId>
+            </Id>
+            <Category>SHIP_TOOL</Category>
+            <MaxDistance>15</MaxDistance>
+            <PreventSynchronization>5</PreventSynchronization>
+            <DynamicMusicCategory>HeavyFight</DynamicMusicCategory>
+            <DynamicMusicAmount>25</DynamicMusicAmount>
+            <Volume>5.0</Volume>
+            <Waves>
+                <Wave Type="D3">
+                    <Start>Audio\KJN_KWP_FlakExplodeClose.wav</Start>
+                </Wave>
+            </Waves>
+        </Sound>
+    -->
+    </Sounds>
+</Definitions>

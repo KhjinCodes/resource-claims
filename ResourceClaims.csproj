@@ -47,7 +47,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Audio\" />
+    <Folder Include="KWP - Resource Claims\Audio\" />
   </ItemGroup>
 
 </Project>
