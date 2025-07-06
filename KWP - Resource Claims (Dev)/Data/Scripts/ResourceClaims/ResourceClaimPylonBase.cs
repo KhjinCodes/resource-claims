@@ -1,6 +1,7 @@
 ﻿using Sandbox.Definitions;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
+using Sandbox.Game.EntityComponents;
 using Sandbox.Game.Localization;
 using Sandbox.ModAPI;
 using System;
@@ -22,20 +23,20 @@ namespace Khjin.ResourceClaims
         // Base References
         private readonly IMyConveyorSorter _resourcePylon;
         private readonly ResourceClaimPylonLogic _logic;
-
+        
         // Mining
         /// <summary>
         /// Radius of the mining zone. Don't go over 300m.
         /// </summary>
         protected float _miningZoneRadius;
-        private BoundingBoxD _boxMiningBounds;
-        private BoundingSphereD _sphereMiningBounds;
-        private BoundingBoxDIterator _boxIterator;
+        private MyOrientedBoundingBoxD _boxMiningBounds;
+        private BoundingBoxIteratorBase _boxIterator;
         private List<MyVoxelBase> _voxelMaps;
         private Queue<MyVoxelBase> _voxelMapQueue;
         private Dictionary<string, OreProfile> _detectedOres;
-        private Dictionary<MyVoxelBase, BoundingBoxD> _detectedVoxelMaps;
-        private int _maxScansPerCycle = 3000;
+        private Dictionary<MyVoxelBase, object> _detectedVoxelMaps;
+        private const int MAX_SCANS_PER_CYCLE = 3000;
+        private const int MAX_MINING_BOX_HEIGHT = 300;
 
         // Production
         /// <summary>
@@ -75,7 +76,7 @@ namespace Khjin.ResourceClaims
         private float _interferrencePenalty;
         private float _suppressionPenalty;
         private Queue<CombatMessage> _combatMessages;
-        private static List<IMyConveyorSorter> _pylons;
+        private static List<ResourceClaimPylonBase> _pylons;
 
         private PylonStatus _pylonStatus = PylonStatus.Idle;
         private PylonStatus _previousPylonStatus = PylonStatus.Idle;
@@ -86,6 +87,13 @@ namespace Khjin.ResourceClaims
         private float _lastSyncedYield;
         private bool _lastSyncedIsInterferedStatus;
         private bool _lastSyncedIsSuppressedStatus;
+        
+        // Fixed Ore List
+        public static readonly string[] OreList = { 
+            "Iron", "Nickel", "Cobalt", "Silicon", 
+            "Magnesium", "Silver", "Gold", "Uranium", "Platinum",
+            "Stone", "Ice"
+        };
 
         private class OreProfile
         {
@@ -100,6 +108,7 @@ namespace Khjin.ResourceClaims
             public string Color;
         }
 
+
         public ResourceClaimPylonBase(IMyConveyorSorter resourcePylon, ResourceClaimPylonLogic logic)
         {
             _resourcePylon = resourcePylon;
@@ -109,19 +118,19 @@ namespace Khjin.ResourceClaims
         public void InitilizeAsServer()
         {
             if (_pylons == null)
-            { _pylons = new List<IMyConveyorSorter>(); }
+            { _pylons = new List<ResourceClaimPylonBase>(); }
 
             _voxelMaps = new List<MyVoxelBase>();
             _voxelMapQueue = new Queue<MyVoxelBase>();
             _detectedOres = new Dictionary<string, OreProfile>();
-            _detectedVoxelMaps = new Dictionary<MyVoxelBase, BoundingBoxD>();
+            _detectedVoxelMaps = new Dictionary<MyVoxelBase, object>();
 
             _oreQueue = new Queue<OreProfile>();
             _filterList = new List<InGame.MyInventoryItemFilter>();
             _combatMessages = new Queue<CombatMessage>();
 
-            if (!_pylons.Contains(_resourcePylon))
-            { _pylons.Add(_resourcePylon); }
+            if (!_pylons.Contains(this))
+            { _pylons.Add(this); }
 
             // Upgrades support
             _resourcePylon.UpgradeValues.Add("Effectiveness", 1f);
@@ -168,8 +177,10 @@ namespace Khjin.ResourceClaims
                     _pylonStatus = PylonStatus.Initializing; break;
                 case PylonStatus.Initializing:
                     {
-                        SetupBounds();
-                        GetVoxelMaps();
+                        if (LoadSavedDetectedOres())
+                        { _pylonStatus = PylonStatus.Mining; }
+                        else
+                        { SetupBounds(); GetVoxelMaps(); }
                         break;
                     }
                 case PylonStatus.Scanning:
@@ -184,6 +195,8 @@ namespace Khjin.ResourceClaims
                     WaitUntilWorking(); break;
                 case PylonStatus.NoOres:
                 case PylonStatus.GridNotStatic:
+                case PylonStatus.Debug:
+                    Debug(); break;
                 default: break;
             }
 
@@ -225,11 +238,18 @@ namespace Khjin.ResourceClaims
             // Get model height (in meters)
             var blockDefinition = MyDefinitionManager.Static.GetCubeBlockDefinition(_resourcePylon.BlockDefinition);
             float height = blockDefinition.Size.Y * (_resourcePylon.CubeGrid.GridSizeEnum == MyCubeSize.Large ? 2.5f : 0.5f);
+            
+            // Calculate mining area center
             Vector3D flatOffset = _resourcePylon.PositionComp.WorldMatrixRef.Down * ((height / 2) + _drillHeadFlatOffset);
-            Vector3D radiusOffset = _resourcePylon.PositionComp.WorldMatrixRef.Down * _miningZoneRadius;
+            Vector3D radiusOffset = _resourcePylon.PositionComp.WorldMatrixRef.Down * (MAX_MINING_BOX_HEIGHT / 2);
             Vector3D center = _resourcePylon.GetPosition() + flatOffset + radiusOffset;
-            _sphereMiningBounds = new BoundingSphereD(center, _miningZoneRadius);
-            _boxMiningBounds = _sphereMiningBounds.GetBoundingBox();
+
+            // Create a bounding box aligned to the block
+            var orientation = _resourcePylon.WorldMatrix.GetOrientation();
+            var halfExtents = new Vector3D(_miningZoneRadius, MAX_MINING_BOX_HEIGHT / 2, _miningZoneRadius);
+            _boxMiningBounds = new MyOrientedBoundingBoxD(center, 
+                                                 halfExtents, 
+                                                 Quaternion.CreateFromRotationMatrix(orientation));
         }
 
         private void GetVoxelMaps()
@@ -239,7 +259,8 @@ namespace Khjin.ResourceClaims
             _detectedOres.Clear();
             _detectedVoxelMaps.Clear();
             _minedOres = MinedOres.Unknown;
-            MyGamePruningStructure.GetAllVoxelMapsInSphere(ref _sphereMiningBounds, _voxelMaps);
+            var miningBounds = _boxMiningBounds.GetAABB();
+            MyGamePruningStructure.GetAllVoxelMapsInBox(ref miningBounds, _voxelMaps);
 
             if (_voxelMaps.Count == 0)
             { _pylonStatus = PylonStatus.NoOres; return; }
@@ -285,6 +306,7 @@ namespace Khjin.ResourceClaims
                 {
                     _pylonStatus = PylonStatus.NoOres;
                 }
+                SaveDetectedOres();
             }
         }
 
@@ -293,17 +315,34 @@ namespace Khjin.ResourceClaims
             if (_boxIterator == null)
             {
                 var voxelMapBounds = _detectedVoxelMaps[voxelMap];
-                _boxIterator = new BoundingBoxDIterator(ref voxelMapBounds, 7, 5, 3);
+                if (voxelMapBounds is BoundingBoxD)
+                {
+                    BoundingBoxD bb = (BoundingBoxD)voxelMapBounds;
+                    _boxIterator = new BoundingBoxDIterator(ref bb, 7, 5, 3);
+                }
+                else if (voxelMapBounds is MyOrientedBoundingBoxD)
+                {
+                    MyOrientedBoundingBoxD obb = (MyOrientedBoundingBoxD)voxelMapBounds;
+                    _boxIterator = new OrientedBoundingBoxDIterator(ref obb, 7, 5, 3);
+                }
             }
 
-            for (int scans = 0; scans < _maxScansPerCycle; scans++)
+            for (int scans = 0; scans < MAX_SCANS_PER_CYCLE; scans++)
             {
                 var worldPosition = _boxIterator.Current;
                 GetOresAt(worldPosition, voxelMap);
                 if (!_boxIterator.Next()) { break; }
             }
 
-            return _boxIterator.IsDone;
+            if (_boxIterator.IsDone)
+            {
+                _boxIterator = null;
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
 
         private void GetOresAt(Vector3D worldPosition, MyVoxelBase voxelMap)
@@ -433,26 +472,30 @@ namespace Khjin.ResourceClaims
             _suppressionPenalty = 0.0f;
 
             var claimPylonPosition = _resourcePylon.PositionComp.GetPosition();
-            MyAPIGateway.Parallel.ForEach(_pylons, pylon =>
+            MyAPIGateway.Parallel.ForEach(_pylons, otherPylon =>
             {
-                if (pylon == _resourcePylon) { return; } // continue
+                if (otherPylon == this) { return; } // continue
 
-                var pylonPosition = pylon.PositionComp.GetPosition();
+                var otherPylonPosition = otherPylon.Block.PositionComp.GetPosition();
 
-                if (Vector3D.DistanceSquared(pylonPosition, claimPylonPosition) <= suppressionSq)
+                float otherSuppressionSq = otherPylon._suppressionZoneRadius * otherPylon._suppressionZoneRadius;
+                float otherInterferenceSq = otherPylon._interferenceZoneRadius * otherPylon._interferenceZoneRadius;
+                double distanceBetweenPylonsSq = Vector3D.DistanceSquared(otherPylonPosition, claimPylonPosition);
+
+                if (distanceBetweenPylonsSq <= suppressionSq || distanceBetweenPylonsSq <= otherSuppressionSq)
                 {
-                    var relationship = GetRelationshipBetweenPlayers(pylon.OwnerId, _resourcePylon.OwnerId);
+                    var relationship = GetRelationshipBetweenPlayers(otherPylon.Block.OwnerId, _resourcePylon.OwnerId);
                     if (relationship == MyRelationsBetweenFactions.Enemies)
                     {
-                        _suppressionPenalty += _suppressionPenaltyFactor;
+                        _suppressionPenalty += otherPylon._suppressionPenaltyFactor;
                     }
                 }
-                if (Vector3D.DistanceSquared(pylonPosition, claimPylonPosition) <= interferenceSq)
+                if (distanceBetweenPylonsSq <= interferenceSq || distanceBetweenPylonsSq <= otherInterferenceSq)
                 {
-                    var relationship = GetRelationshipBetweenPlayers(pylon.OwnerId, _resourcePylon.OwnerId);
+                    var relationship = GetRelationshipBetweenPlayers(otherPylon.Block.OwnerId, _resourcePylon.OwnerId);
                     if (relationship != MyRelationsBetweenFactions.Enemies)
                     {
-                        _interferrencePenalty += _interferencePenaltyFactor;
+                        _interferrencePenalty += otherPylon._interferencePenaltyFactor;
                     }
                 }
             });
@@ -462,7 +505,7 @@ namespace Khjin.ResourceClaims
 
             // Calculate the actual final effectiveness
             _actualEffectiveness = (_effectiveness - _interferrencePenalty) * (1 - _suppressionPenalty);
-            _actualEffectiveness = _actualEffectiveness < 0.10f ? 0.10f : _actualEffectiveness;
+            _actualEffectiveness = _actualEffectiveness < 0.05f ? 0.05f : _actualEffectiveness;
         }
 
         public void WarnOwners()
@@ -528,6 +571,7 @@ namespace Khjin.ResourceClaims
                 case "Iron":        return MinedOres.Iron;
                 case "Cobalt":      return MinedOres.Cobalt;
                 case "Nickel":      return MinedOres.Nickel;
+                case "Silicon":     return MinedOres.Silicon;
                 case "Magnesium":   return MinedOres.Magnesium;
                 case "Silver":      return MinedOres.Silver;
                 case "Gold":        return MinedOres.Gold;
@@ -537,6 +581,60 @@ namespace Khjin.ResourceClaims
                 case "Stone":       return MinedOres.Stone;
                 default:            return MinedOres.Unknown;
             }
+        }
+
+        private void SaveDetectedOres()
+        {
+            var logic = _resourcePylon.GameLogic.GetAs<ResourceClaimPylonLogic>();
+            if (logic != null)
+            {
+                string currentLocation = _resourcePylon.PositionComp.GetPosition().ToString();
+                string currentOres = _minedOres.ToString();
+                logic.OresData = $"{currentLocation}|{currentOres}";
+                _resourcePylon.CustomData += $"\nStored Data: {logic.OresData}";
+            }
+        }
+
+        private bool LoadSavedDetectedOres()
+        {
+            var logic = _resourcePylon.GameLogic.GetAs<ResourceClaimPylonLogic>();
+            if (logic == null) { return false; }
+
+            string savedData = logic.OresData;
+            if (string.IsNullOrEmpty(savedData)) { return false; }
+
+            string[] parts = savedData.Split(new char[] { '|' });
+            if (parts.Length != 2) { return false; }
+
+            string savedLocation = parts[0].Trim();
+            string savedDectedOres = parts[1].Trim();
+
+            Vector3D oldLocation;
+            if (!Vector3D.TryParse(savedLocation, out oldLocation))
+            { return false; }
+
+            if (Vector3D.DistanceSquared(oldLocation, _resourcePylon.PositionComp.GetPosition()) > 1)
+            { return false; }
+
+            MinedOres minedOres;
+            if (!MinedOres.TryParse(savedDectedOres, out minedOres))
+            { return false; }
+
+            _detectedOres.Clear();
+            _minedOres = minedOres;
+            foreach (string oreName in OreList)
+            {
+                MyVoxelMaterialDefinition definition;
+                if (MyDefinitionManager.Static.TryGetVoxelMaterialDefinition(oreName, out definition))
+                {
+                    _detectedOres.Add(oreName, new OreProfile
+                    {
+                        MinedOre = definition.MinedOre,
+                        OreRatio = definition.MinedOreRatio
+                    });
+                }
+            }
+            return true;
         }
 
         private bool IsFilteredOre(OreProfile oreProfile)
@@ -562,6 +660,18 @@ namespace Khjin.ResourceClaims
         public abstract void AnimateSubparts();
 
         public abstract void PlaySounds();
+
+        private void Debug()
+        {
+            // Draw the mining bounds
+            for (int i = 0; i < 8; i++)
+            {
+                var gps = MyAPIGateway.Session.GPS.Create($"C{i}", "", _boxMiningBounds.GetCorner(i), true);
+                MyAPIGateway.Session.GPS.AddLocalGps(gps);
+            }
+
+            _pylonStatus = PylonStatus.Unknown;
+        }
 
         public long EntityId
         {

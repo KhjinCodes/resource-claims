@@ -1,5 +1,7 @@
 ﻿using Sandbox.Common.ObjectBuilders;
+using Sandbox.Game.EntityComponents;
 using Sandbox.ModAPI;
+using System;
 using System.Text;
 using VRage.Game.Components;
 using VRage.Game.ModAPI;
@@ -17,6 +19,7 @@ namespace Khjin.ResourceClaims
         "KJN_KWP_RES_ResourceClaimPylon_Heavy")]
     public class ResourceClaimPylonLogic : MyGameLogicComponent, IMyEventProxy
     {
+        private IMyConveyorSorter _conveyorSorter;
         private ResourceClaimPylonBase _resourcePylon;
         private StringBuilder _statusLogs;
         private int _customInfoUpdateCycle = 0;
@@ -30,6 +33,8 @@ namespace Khjin.ResourceClaims
         internal MySync<short, SyncDirection.FromServer> _syncedIsInterfered;
         internal MySync<short, SyncDirection.FromServer> _syncedIsSuppressed;
 
+        internal Guid DetectedOresKey = new Guid("4f3a6b6ae2ec481c97228b7d287ccc01");
+
         public override void Init(MyObjectBuilder_EntityBase objectBuilder)
         {
             base.Init(objectBuilder);
@@ -42,28 +47,32 @@ namespace Khjin.ResourceClaims
             base.UpdateOnceBeforeFrame();
 
             // Create base instance, available for both client and server
-            var pylonInstance = (IMyConveyorSorter)Entity;
-            string subtypeName = pylonInstance.BlockDefinition.SubtypeName;
+            _conveyorSorter = (IMyConveyorSorter)Entity;
+            string subtypeName = _conveyorSorter.BlockDefinition.SubtypeName;
 
             switch (subtypeName)
             {
                 case "KJN_KWP_RES_ResourceClaimPylon_Light":
-                    _resourcePylon = new ResourceClaimPylonLight(pylonInstance, this); break;
+                    _resourcePylon = new ResourceClaimPylonLight(_conveyorSorter, this); break;
                 case "KJN_KWP_RES_ResourceClaimPylon_Medium":
-                    _resourcePylon = new ResourceClaimPylonMedium(pylonInstance, this); break;
+                    _resourcePylon = new ResourceClaimPylonMedium(_conveyorSorter, this); break;
                 case "KJN_KWP_RES_ResourceClaimPylon_Heavy":
-                    _resourcePylon = new ResourceClaimPylonHeavy(pylonInstance, this); break;
+                    _resourcePylon = new ResourceClaimPylonHeavy(_conveyorSorter, this); break;
                 default:
-                    pylonInstance = null; return; // IDK where this came from
+                    _conveyorSorter = null; return; // IDK where this came from
             }
 
-            pylonInstance.OnMarkForClose += OnMarkForClose;
-            pylonInstance.AppendingCustomInfo += AppendingCustomInfo;
+            _conveyorSorter.OnMarkForClose += OnMarkForClose;
+            _conveyorSorter.AppendingCustomInfo += AppendingCustomInfo;
 
             if (IsServer())
             {
-                // For KJN_KWP_RES_ResourceClaimPylon_Light
-                // TODO: Add more pylons!
+                // Setup ore storage
+                if (_conveyorSorter.Storage == null)
+                { _conveyorSorter.Storage = new MyModStorageComponent(); }
+                if (!_conveyorSorter.Storage.ContainsKey(DetectedOresKey))
+                { _conveyorSorter.Storage.Add(DetectedOresKey, string.Empty); }
+
                 _resourcePylon.InitilizeAsServer();
                 MyAPIGateway.Session.DamageSystem.RegisterBeforeDamageHandler(int.MaxValue, OnDamage);
 
@@ -131,6 +140,15 @@ namespace Khjin.ResourceClaims
             _statusLogs.AppendLine($"Interfered: {(_resourcePylon.IsInterfered ? "Yes" : "No")}");
             _statusLogs.AppendLine($"Suppressed: {(_resourcePylon.IsSuppressed ? "Yes" : "No")}");
             _statusLogs.AppendLine($"Detected Ores:\n{ToMinedOresList(_resourcePylon.MinedOres)}");
+            _statusLogs.AppendLine("--== Warnings ==--");
+            if (_resourcePylon.IsInterfered)
+            {
+                _statusLogs.AppendLine("> Interfered: Friendly pylon in range, yield is slightly reduced.");
+            }
+            if (_resourcePylon.IsSuppressed)
+            {
+                _statusLogs.AppendLine("> Suppressed: Enemy pylon in range, yield is greatly reduced.");
+            }
             _resourcePylon.Block.RefreshCustomInfo();
         }
 
@@ -140,6 +158,7 @@ namespace Khjin.ResourceClaims
             if ((minedOres & MinedOres.Iron) != 0) { minedOresList += "- Iron\n"; }
             if ((minedOres & MinedOres.Cobalt) != 0) { minedOresList += "- Cobalt\n"; }
             if ((minedOres & MinedOres.Nickel) != 0) { minedOresList += "- Nickel\n"; }
+            if ((minedOres & MinedOres.Silicon) != 0) { minedOresList += "- Silicon\n"; }
             if ((minedOres & MinedOres.Magnesium) != 0) { minedOresList += "- Magnesium\n"; }
             if ((minedOres & MinedOres.Silver) != 0) { minedOresList += "- Silver\n"; }
             if ((minedOres & MinedOres.Gold) != 0) { minedOresList += "- Gold\n"; }
@@ -165,6 +184,12 @@ namespace Khjin.ResourceClaims
         public static bool IsServer()
         {
             return (MyAPIGateway.Session.IsServer || MyAPIGateway.Utilities.IsDedicated);
+        }
+    
+        internal string OresData
+        {
+            get { return _conveyorSorter.Storage[DetectedOresKey]; }
+            set { _conveyorSorter.Storage[DetectedOresKey] = value; }
         }
     }
 }

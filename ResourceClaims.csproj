@@ -4,10 +4,17 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <WarningLevel>5</WarningLevel>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Remove="CubeBlocks\**" />
+    <Compile Remove="KWP - Resource Claims\**" />
     <EmbeddedResource Remove="CubeBlocks\**" />
+    <EmbeddedResource Remove="KWP - Resource Claims\**" />
     <None Remove="CubeBlocks\**" />
+    <None Remove="KWP - Resource Claims\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -46,8 +53,8 @@
     </Reference>
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="KWP - Resource Claims\Audio\" />
-  </ItemGroup>
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="xcopy &quot;$(ProjectDir)KWP - Resource Claims (Dev)\*&quot; &quot;%25APPDATA%25\SpaceEngineers\Mods\KWP - Resource Claims (Dev)\&quot; /s /e /y&#xD;&#xA;del &quot;$(TargetPath)&quot;" />
+  </Target>
 
 </Project>

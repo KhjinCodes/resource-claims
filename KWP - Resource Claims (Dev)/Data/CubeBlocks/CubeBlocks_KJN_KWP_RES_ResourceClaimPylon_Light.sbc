@@ -6,15 +6,15 @@
 				<TypeId>ConveyorSorter</TypeId>
 				<SubtypeId>KJN_KWP_RES_ResourceClaimPylon_Light</SubtypeId>
 			</Id>
-			<DisplayName>Small Resource Claim Pylon</DisplayName>
+			<DisplayName>Light Resource Claim Pylon</DisplayName>
 			<Icon>Textures\GUI\Icons\Cubes\KJN_KWP_RES_ResourceClaimPylon_Light.dds</Icon>
-			<Description>A powerful mining pylon with a 150m detection range. Does not consume detected ores but will affect other pylons.
+			<Description>A powerful mining pylon by AED (Advanced Exploration Dynamics) capable of extracting ore deposits without consuming them. Placing it near other pylons will cause a decrease in yield efficiency.
 
-Base Ore Output: 10 units
-Mining Range: 150m radius (300m depth)
+Base Ore Output: 10 units per cycle
+Mining Range: 300m (400m depth)
 Ally Interferrence Range: 2km
 Enemy Suppression Range: 5km
-Interference Penalty: 5%
+Interference Penalty: 10%
 Suppression Penalty: 10%</Description>
 			<CubeSize>Large</CubeSize>
 			<GuiVisible>false</GuiVisible>
@@ -49,12 +49,12 @@ Suppression Penalty: 10%</Description>
 				<StaticMode>
 					<PlacementMode>Volumetric</PlacementMode>
 					<MaxAllowed>0.15</MaxAllowed>
-					<MinAllowed>0</MinAllowed>
+					<MinAllowed>0.00</MinAllowed>
 				</StaticMode>
 				<DynamicMode>
 					<PlacementMode>Volumetric</PlacementMode>
 					<MaxAllowed>0.15</MaxAllowed>
-					<MinAllowed>0</MinAllowed>
+					<MinAllowed>0.00</MinAllowed>
 				</DynamicMode>
 			</VoxelPlacement>
 			<BlockPairName>KJN_KWP_RES_ResourceClaimPylon_Light</BlockPairName>
@@ -65,9 +65,9 @@ Suppression Penalty: 10%</Description>
 			<ResourceSinkGroup>Conveyors</ResourceSinkGroup>
 			<PowerInput>0.56</PowerInput>
 			<InventorySize>
-				<X>5</X>
-				<Y>5</Y>
-				<Z>5</Z>
+				<X>10.5</X>
+				<Y>10.5</Y>
+				<Z>10.5</Z>
 			</InventorySize>
 			<EmissiveColorPreset>Default</EmissiveColorPreset>
 			<PrimarySound>BlockAssemblerProcess</PrimarySound>
