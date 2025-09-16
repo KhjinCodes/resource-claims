@@ -11,7 +11,7 @@
 			<Description>A powerful mining pylon by AED (Advanced Exploration Dynamics) capable of extracting ore deposits without consuming them. Placing it near other pylons will cause a decrease in yield efficiency.
 
 Base Ore Output: 30 units per cycle
-Mining Range: 600m (400m depth)
+Mining Range: 600m (350m depth)
 Ally Interferrence Range: 7km
 Enemy Suppression Range: 10km
 Interference Penalty: 10%

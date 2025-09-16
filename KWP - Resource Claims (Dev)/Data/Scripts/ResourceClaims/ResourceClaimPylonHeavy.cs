@@ -25,9 +25,11 @@ namespace Khjin.ResourceClaims
             _miningZoneRadius = 1000.0f;
             _interferenceZoneRadius = 10000.0f;
             _suppressionZoneRadius = 15000.0f;
-            _drillHeadFlatOffset = 8.75f;
+            // _drillHeadFlatOffset = 8.75f;
+            _drillHeadFlatOffset = -42.0f;
 
-            _baseOreAmount = 90.0f;
+            // _baseOreAmount = 90.0f;
+            _baseOreAmount = 45.0f;
             _interferencePenaltyFactor = 0.10f;
             _suppressionPenaltyFactor = 0.30f;
 

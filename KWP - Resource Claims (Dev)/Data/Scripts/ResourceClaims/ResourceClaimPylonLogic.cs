@@ -3,6 +3,7 @@ using Sandbox.Game.EntityComponents;
 using Sandbox.ModAPI;
 using System;
 using System.Text;
+using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.ModAPI;
 using VRage.Game.ModAPI.Network;
@@ -10,10 +11,11 @@ using VRage.ModAPI;
 using VRage.Network;
 using VRage.ObjectBuilders;
 using VRage.Sync;
+using VRage.Utils;
 
 namespace Khjin.ResourceClaims
 {
-    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_ConveyorSorter), false, 
+    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_ConveyorSorter), false,
         "KJN_KWP_RES_ResourceClaimPylon_Light",
         "KJN_KWP_RES_ResourceClaimPylon_Medium",
         "KJN_KWP_RES_ResourceClaimPylon_Heavy")]
@@ -106,7 +108,7 @@ namespace Khjin.ResourceClaims
         public override void UpdateAfterSimulation100()
         {
             base.UpdateAfterSimulation100();
-            if (!IsServer() || _resourcePylon.Status < PylonStatus.Mining) 
+            if (!IsServer() || _resourcePylon.Status < PylonStatus.Mining)
             { return; }
             else
             { _resourcePylon.DoWork(); }
@@ -115,9 +117,13 @@ namespace Khjin.ResourceClaims
         private void OnDamage(object target, ref MyDamageInformation info)
         {
             IMySlimBlock block = target as IMySlimBlock;
-            if (block == null || block.FatBlock == null || _resourcePylon == null) { return; }
-            if (block.FatBlock.EntityId != _resourcePylon.EntityId) { return; }
-            _resourcePylon.WarnOwners();
+            if (IsNonCombatDamage(info.Type)) { return; }
+            if (block == null || _resourcePylon == null) { return; }
+            if ((block.FatBlock != null && block.FatBlock.EntityId == _resourcePylon.EntityId)
+            || (block.CubeGrid != null && block.CubeGrid == _resourcePylon.Block.CubeGrid))
+            {
+                _resourcePylon.WarnOwners();
+            }
         }
 
         private bool CanUpdateCustomInfo()
@@ -185,11 +191,26 @@ namespace Khjin.ResourceClaims
         {
             return (MyAPIGateway.Session.IsServer || MyAPIGateway.Utilities.IsDedicated);
         }
-    
+
         internal string OresData
         {
             get { return _conveyorSorter.Storage[DetectedOresKey]; }
             set { _conveyorSorter.Storage[DetectedOresKey] = value; }
+        }
+
+        private bool IsNonCombatDamage(MyStringHash type)
+        {
+            if (type == MyDamageType.Bullet
+            || type == MyDamageType.Explosion
+            || type == MyDamageType.Rocket
+            || type == MyDamageType.Mine
+            || type == MyDamageType.Weapon
+            || type == MyDamageType.Destruction
+            || type == MyDamageType.Spider
+            || type == MyDamageType.Wolf
+            || type == MyDamageType.Unknown)
+            { return false; }
+            return true;
         }
     }
 }
